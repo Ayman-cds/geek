@@ -125,7 +125,7 @@ export default function EvaluationDetails() {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="card text-center py-8 border-red-200 bg-red-50">
-          <p className="text-red-600 mb-4">Evaluation not found</p>
+          <p className="text-red-700 mb-4">Evaluation not found</p>
           <button onClick={handleBack} className="btn-primary">
             Back to Project
           </button>
@@ -137,7 +137,13 @@ export default function EvaluationDetails() {
   return (
     <div className="max-w-4xl mx-auto">
       {message && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg">
+        <div className={`mb-6 p-4 rounded-lg ${
+          message.includes('✅') 
+            ? 'bg-green-50 border border-green-200 text-green-800' 
+            : message.includes('❌') 
+            ? 'bg-red-50 border border-red-200 text-red-800'
+            : 'bg-blue-50 border border-blue-200 text-blue-800'
+        }`}>
           {message}
         </div>
       )}
@@ -166,7 +172,7 @@ export default function EvaluationDetails() {
               onClick={() => setActiveTab('eval-sets')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'eval-sets'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-grey-500 text-grey-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -176,7 +182,7 @@ export default function EvaluationDetails() {
               onClick={() => setActiveTab('integrations')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'integrations'
-                  ? 'border-blue-500 text-blue-600'
+                  ? 'border-gray-500 text-gray-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -279,8 +285,8 @@ export default function EvaluationDetails() {
               ))}
             </div>
           ) : evalSetsError ? (
-            <div className="card text-center py-8 border-red-200 bg-red-50">
-              <p className="text-red-600 mb-4">Error loading eval sets</p>
+            <div className="card text-center py-8 border-gray-400 bg-gray-100">
+              <p className="text-gray-900 mb-4">Error loading eval sets</p>
               <button onClick={() => refetchEvalSets()} className="btn-primary">
                 Try Again
               </button>

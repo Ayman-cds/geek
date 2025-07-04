@@ -149,7 +149,11 @@ class EndpointIntegrationListSchema(Schema):
     name: str
     endpoint_url: str
     http_method: str
+    param_schema: Dict[str, Any]
+    param_defaults: Dict[str, Any]
+    test_examples: List[Dict[str, Any]]
+    eval_id: UUID
     created_at: datetime
-    
+
     class Config:
         from_attributes = True 
