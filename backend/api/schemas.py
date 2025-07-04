@@ -1,6 +1,6 @@
 from ninja import Schema, File
 from ninja.files import UploadedFile
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from uuid import UUID
 
@@ -115,6 +115,7 @@ class EndpointIntegrationCreateSchema(Schema):
     http_method: str = "POST"
     param_schema: Dict[str, Any]
     param_defaults: Optional[Dict[str, Any]] = None
+    test_examples: List[Dict[str, Any]] = []
     eval_id: UUID
 
 
@@ -124,6 +125,7 @@ class EndpointIntegrationUpdateSchema(Schema):
     http_method: Optional[str] = None
     param_schema: Optional[Dict[str, Any]] = None
     param_defaults: Optional[Dict[str, Any]] = None
+    test_examples: Optional[List[Dict[str, Any]]] = None
 
 
 class EndpointIntegrationResponseSchema(Schema):
@@ -133,10 +135,11 @@ class EndpointIntegrationResponseSchema(Schema):
     http_method: str
     param_schema: Dict[str, Any]
     param_defaults: Dict[str, Any]
+    test_examples: List[Dict[str, Any]]
     eval_id: UUID
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

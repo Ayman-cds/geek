@@ -41,7 +41,7 @@ class EndpointIntegration(models.Model):
         ('PUT', 'PUT'),
         ('PATCH', 'PATCH'),
     ]
-    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     eval = models.ForeignKey(Eval, on_delete=models.CASCADE, related_name='endpoint_integrations')
     name = models.CharField(max_length=255, help_text="e.g. 'OpenAI GPT-4 Turbo'")
@@ -54,12 +54,16 @@ class EndpointIntegration(models.Model):
         default=dict,
         help_text="User-provided defaults for missing params"
     )
+    test_examples = models.JSONField(
+        default=list,
+        help_text="Up to 3 test examples for LLM to understand the API schema",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         ordering = ['-created_at']
-        
+
     def __str__(self):
         return f"{self.eval.name} - {self.name}"
 

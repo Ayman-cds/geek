@@ -23,10 +23,22 @@ class EvalAdmin(admin.ModelAdmin):
 
 @admin.register(EndpointIntegration)
 class EndpointIntegrationAdmin(admin.ModelAdmin):
-    list_display = ['name', 'eval', 'endpoint_url', 'http_method', 'created_at']
+    list_display = [
+        "name",
+        "eval",
+        "endpoint_url",
+        "http_method",
+        "test_examples_count",
+        "created_at",
+    ]
     list_filter = ['http_method', 'created_at']
     search_fields = ['name', 'endpoint_url', 'eval__name']
     readonly_fields = ['id', 'created_at', 'updated_at']
+
+    def test_examples_count(self, obj):
+        return len(obj.test_examples) if obj.test_examples else 0
+
+    test_examples_count.short_description = "Test Examples Count"
 
 
 @admin.register(EvalSet)

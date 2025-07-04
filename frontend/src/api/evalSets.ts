@@ -14,6 +14,11 @@ export interface EndpointIntegration {
     id: string;
     name: string;
     endpoint_url: string;
+    http_method: string;
+    param_schema: Record<string, string>;
+    param_defaults: Record<string, unknown>;
+    test_examples: Array<Record<string, unknown>>;
+    eval_id: string;
     headers?: Record<string, string>;
     auth_type?: string;
     created_at: string;
