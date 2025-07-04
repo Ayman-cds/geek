@@ -1,0 +1,69 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Django specific
+staticfiles/
+media/
+
+
+# pycharm
+*.idea
+/backend/venv/
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage
+
+# Turbo
+.turbo
+
+# Vercel
+.vercel
+
+# Build Outputs
+.next/
+out/
+build
+dist
+
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.DS_Store
+*.pem
+
+solutions/qm-web/tsconfig.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+solutions/qm-backend/run_tour_evaluation.sh
+solutions/qm-backend/run_tour_redteaming_evaluation.sh
+solutions/qm-backend/auto-eval/cred.json
+solutions/qm-backend/.env
+solutions/qm-backend/.env.dev
+solutions/qm-backend/.env.prod
+solutions/qm-backend/db.json
