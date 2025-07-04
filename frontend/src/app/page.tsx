@@ -5,6 +5,7 @@ import { useProjects } from '../api/hooks/useProjects';
 
 export default function Home() {
   const router = useRouter();
+  //
   const { data: projects = [], isLoading, error, refetch } = useProjects();
 
   const handleCreateProject = () => {
