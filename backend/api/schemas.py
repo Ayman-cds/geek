@@ -90,9 +90,9 @@ class EvalSetResponseSchema(Schema):
     row_count: Optional[int] = None
     eval_id: UUID
     endpoint_integration_id: Optional[UUID] = None
-    uploaded_by: int
+    uploaded_by_id: int
     uploaded_at: datetime
-    
+
     class Config:
         from_attributes = True
 

@@ -1,4 +1,4 @@
-from ninja import Router, File
+from ninja import Router, File, Query
 from ninja.files import UploadedFile
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
@@ -30,36 +30,39 @@ def count_csv_rows(file_content: str) -> int:
 
 @router.post("/eval-sets", response=EvalSetResponseSchema)
 def create_eval_set(
-    request, 
-    eval_id: str,
+    request,
     file: UploadedFile = File(...),
     name: str = None,
-    endpoint_integration_id: str = None
+    endpoint_integration_id: str = None,
 ):
+    eval_id = request.POST.get("eval_id")
+    if not eval_id:
+        return {"error": "eval_id is required"}, 400
+
     eval_obj = get_object_or_404(Eval, id=eval_id)
     endpoint_integration = None
-    
+
     if endpoint_integration_id:
         endpoint_integration = get_object_or_404(EndpointIntegration, id=endpoint_integration_id)
         if endpoint_integration.eval_id != eval_obj.id:
             return {"error": "Endpoint integration does not belong to the specified eval"}, 400
-    
+
     user = User.objects.first()
     if not user:
         return {"error": "No users found. Please create a user first."}, 400
-    
+
     if not name:
         name = extract_name_from_filename(file.name)
-    
+
     file_content = file.read().decode('utf-8')
     row_count = count_csv_rows(file_content)
-    
+
     file.seek(0)
     azure_url = upload_csv_to_azure(file, eval_id, file.name)
-    
+
     if not azure_url:
         return {"error": "Failed to upload file to Azure Blob Storage"}, 500
-    
+
     eval_set = EvalSet.objects.create(
         name=name,
         eval=eval_obj,
@@ -68,7 +71,7 @@ def create_eval_set(
         row_count=row_count,
         uploaded_by=user
     )
-    
+
     return eval_set
 
 
