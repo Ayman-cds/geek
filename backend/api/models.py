@@ -80,21 +80,20 @@ class EvalSet(models.Model):
     row_count = models.IntegerField(null=True, blank=True, help_text="Optional; for quick sanity checks")
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_eval_sets')
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         ordering = ['-uploaded_at']
-    
+
     def clean(self):
         if self.eval and self.endpoint_integration:
             if self.endpoint_integration.eval != self.eval:
                 raise ValidationError(
-                    'Endpoint integration must belong to the same eval as the eval set.'
+                    "Endpoint integration must belong to the same eval as the eval set."
                 )
-    
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-        
+
     def __str__(self):
         return f"{self.eval.name} - {self.name}"
 
