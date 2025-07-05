@@ -62,6 +62,7 @@ export default function EvaluationDetails() {
   const [selectedCodeVersion, setSelectedCodeVersion] = useState<any | null>(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [activeCodeView, setActiveCodeView] = useState<'new' | 'existing'>('new');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const showMessage = (msg: string) => {
     setMessage(msg);
@@ -250,12 +251,43 @@ export default function EvaluationDetails() {
     }
   };
 
+  const handleCloseFullscreen = () => {
+    if (isEditing) {
+      // If user was editing, revert changes
+      setEditedCode(generatedCode);
+      setIsEditing(false);
+    }
+    setIsFullscreen(false);
+  };
+
   // Load code versions when component mounts
   useEffect(() => {
     if (evalId) {
       fetchCodeVersions();
     }
   }, [evalId]);
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        handleCloseFullscreen();
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isFullscreen]);
 
   if (evaluationLoading) {
     return (
@@ -730,23 +762,32 @@ export default function EvaluationDetails() {
                  
                  {generatedCode ? (
                    <div className="border rounded-lg overflow-hidden">
-                     <Editor
-                       value={isEditing ? editedCode : generatedCode}
-                       onValueChange={(code) => setEditedCode(code)}
-                       highlight={(code) => highlight(code, languages.python, 'python')}
-                       padding={16}
-                       readOnly={!isEditing}
-                       style={{
-                         fontFamily: '"Fira Code", "Fira Mono", monospace',
-                         fontSize: 14,
-                         backgroundColor: '#2d3748',
-                         color: '#e2e8f0',
-                         minHeight: '400px',
-                         maxHeight: '600px',
-                         overflow: 'auto',
-                         outline: 'none',
-                       }}
-                     />
+                     <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
+                       <span className="text-sm text-gray-300">eval_runner.py</span>
+                       <button
+                         onClick={() => setIsFullscreen(true)}
+                         className="text-gray-300 hover:text-white text-sm"
+                       >
+                         ⛶ Fullscreen
+                       </button>
+                     </div>
+                     <div className="relative">
+                       <Editor
+                         value={isEditing ? editedCode : generatedCode}
+                         onValueChange={(code) => setEditedCode(code)}
+                         highlight={(code) => highlight(code, languages.python, 'python')}
+                         padding={16}
+                         readOnly={!isEditing}
+                         style={{
+                           fontFamily: '"Fira Code", "Fira Mono", monospace',
+                           fontSize: 14,
+                           backgroundColor: '#2d3748',
+                           color: '#e2e8f0',
+                           minHeight: '500px',
+                           outline: 'none',
+                         }}
+                       />
+                     </div>
                    </div>
                  ) : (
                    <div className="bg-gray-50 p-8 rounded-lg text-center">
@@ -909,26 +950,40 @@ export default function EvaluationDetails() {
                         </div>
                       </div>
 
-                      {/* Code Display */}
-                      <div className="border rounded-lg overflow-hidden">
-                        <Editor
-                          value={selectedCodeVersion.code}
-                          onValueChange={() => {}} // Read-only
-                          highlight={(code) => highlight(code, languages.python, 'python')}
-                          padding={16}
-                          readOnly={true}
-                          style={{
-                            fontFamily: '"Fira Code", "Fira Mono", monospace',
-                            fontSize: 14,
-                            backgroundColor: '#2d3748',
-                            color: '#e2e8f0',
-                            minHeight: '400px',
-                            maxHeight: '600px',
-                            overflow: 'auto',
-                            outline: 'none',
-                          }}
-                        />
-                      </div>
+                                             {/* Code Display */}
+                       <div className="border rounded-lg overflow-hidden">
+                         <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
+                           <span className="text-sm text-gray-300">eval_runner.py (Version {selectedCodeVersion.version})</span>
+                           <button
+                             onClick={() => {
+                               setGeneratedCode(selectedCodeVersion.code);
+                               setEditedCode(selectedCodeVersion.code);
+                               setCurrentCodeVersionId(selectedCodeVersion.id);
+                               setIsFullscreen(true);
+                             }}
+                             className="text-gray-300 hover:text-white text-sm"
+                           >
+                             ⛶ Fullscreen
+                           </button>
+                         </div>
+                         <div className="relative">
+                           <Editor
+                             value={selectedCodeVersion.code}
+                             onValueChange={() => {}} // Read-only
+                             highlight={(code) => highlight(code, languages.python, 'python')}
+                             padding={16}
+                             readOnly={true}
+                             style={{
+                               fontFamily: '"Fira Code", "Fira Mono", monospace',
+                               fontSize: 14,
+                               backgroundColor: '#2d3748',
+                               color: '#e2e8f0',
+                               minHeight: '500px',
+                               outline: 'none',
+                             }}
+                           />
+                         </div>
+                       </div>
                     </div>
                   ) : (
                     <div className="bg-gray-50 p-8 rounded-lg text-center">
@@ -941,6 +996,104 @@ export default function EvaluationDetails() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Fullscreen Code Editor Modal */}
+      {isFullscreen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center">
+          <div className="w-full h-full max-w-7xl mx-4 my-4 bg-white rounded-lg overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center bg-gray-800 px-6 py-4">
+              <div className="flex items-center gap-4">
+                <span className="text-white font-medium">eval_runner.py</span>
+                {currentCodeVersionId && (
+                  <span className="text-gray-300 text-sm">
+                    Version {codeVersions.find(v => v.id === currentCodeVersionId)?.version || 'Unknown'}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={handleSaveCode}
+                      disabled={isSaving}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm"
+                    >
+                      Cancel Edit
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleEditCode}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                    >
+                      Edit Code
+                    </button>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(generatedCode || editedCode)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm"
+                    >
+                      Copy Code
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={handleCloseFullscreen}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-hidden">
+              <Editor
+                value={isEditing ? editedCode : (generatedCode || selectedCodeVersion?.code || '')}
+                onValueChange={(code) => setEditedCode(code)}
+                highlight={(code) => highlight(code, languages.python, 'python')}
+                padding={24}
+                readOnly={!isEditing}
+                style={{
+                  fontFamily: '"Fira Code", "Fira Mono", monospace',
+                  fontSize: 16,
+                  backgroundColor: '#2d3748',
+                  color: '#e2e8f0',
+                  height: '100%',
+                  overflow: 'auto',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+                         {/* Modal Footer */}
+             <div className="bg-gray-100 px-6 py-3 border-t">
+               <div className="flex justify-between items-center text-sm text-gray-600">
+                 <div className="flex items-center gap-4">
+                   <span>Lines: {(generatedCode || editedCode || '').split('\n').length}</span>
+                   <span>Characters: {(generatedCode || editedCode || '').length}</span>
+                   <span className="text-gray-500">Press ESC to close</span>
+                 </div>
+                 <div className="flex items-center gap-2">
+                   <span>Python</span>
+                   {isEditing && (
+                     <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">
+                       EDITING
+                     </span>
+                   )}
+                 </div>
+               </div>
+             </div>
+          </div>
         </div>
       )}
     </div>
