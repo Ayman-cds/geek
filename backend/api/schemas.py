@@ -156,4 +156,55 @@ class EndpointIntegrationListSchema(Schema):
     created_at: datetime
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+
+class GenerateEvalRunnerSchema(Schema):
+    eval_id: UUID
+    endpoint_integration_id: UUID
+    eval_set_id: UUID
+    instructions: Optional[str] = None
+    sample_size: Optional[int] = 5
+
+
+class GenerateEvalRunnerResponseSchema(Schema):
+    generated_code: str
+    code_version: int
+    eval_id: UUID
+    code_version_id: UUID
+
+
+class CodeVersionUpdateSchema(Schema):
+    code: str
+
+
+class CodeVersionResponseSchema(Schema):
+    id: UUID
+    eval_id: UUID
+    version: int
+    code: str
+    created_at: datetime
+    is_active: bool
+    code_version_id: UUID
+    eval_set_id: Optional[UUID] = None
+    eval_set_name: Optional[str] = None
+    endpoint_integration_id: Optional[UUID] = None
+    endpoint_integration_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CodeVersionListSchema(Schema):
+    id: UUID
+    eval_id: UUID
+    version: int
+    created_at: datetime
+    is_active: bool
+    eval_set_id: Optional[UUID] = None
+    eval_set_name: Optional[str] = None
+    endpoint_integration_id: Optional[UUID] = None
+    endpoint_integration_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True

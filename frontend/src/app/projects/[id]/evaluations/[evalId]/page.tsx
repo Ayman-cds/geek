@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useEvaluation } from '../../../../../api/hooks/useEvaluations';
 import { useEvalSets, useCreateEvalSet, useUpdateEvalSet, useEndpointIntegrations } from '../../../../../api/hooks/useEvalSets';
 import { useProject } from '../../../../../api/hooks/useProjects';
 import { EvalSet } from '../../../../../api/evalSets';
 import EndpointIntegration from '../../../../../components/EndpointIntegration';
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-python';
+import 'prismjs/themes/prism-tomorrow.css';
 
 export default function EvaluationDetails() {
   const router = useRouter();
@@ -26,7 +30,7 @@ export default function EvaluationDetails() {
   const [showIntegrationForm, setShowIntegrationForm] = useState(false);
   const [editingEvalSet, setEditingEvalSet] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'eval-sets' | 'integrations'>('eval-sets');
+  const [activeTab, setActiveTab] = useState<'eval-sets' | 'integrations' | 'code-generation'>('eval-sets');
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -41,10 +45,30 @@ export default function EvaluationDetails() {
     endpoint_integration_id: ''
   });
 
+  // Code generation form state
+  const [codeGenForm, setCodeGenForm] = useState({
+    eval_set_id: '',
+    endpoint_integration_id: '',
+    instructions: '',
+    sample_size: 5
+  });
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [editedCode, setEditedCode] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentCodeVersionId, setCurrentCodeVersionId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [codeVersions, setCodeVersions] = useState<any[]>([]);
+  const [selectedCodeVersion, setSelectedCodeVersion] = useState<any | null>(null);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+  const [activeCodeView, setActiveCodeView] = useState<'new' | 'existing'>('new');
+
   const showMessage = (msg: string) => {
     setMessage(msg);
     setTimeout(() => setMessage(''), 3000);
   };
+
+
 
   const handleUpload = async () => {
     if (!uploadForm.file) {
@@ -106,6 +130,132 @@ export default function EvaluationDetails() {
     refetchEndpointIntegrations();
     showMessage(message);
   };
+
+  const handleGenerateCode = async () => {
+    if (!codeGenForm.eval_set_id || !codeGenForm.endpoint_integration_id) {
+      showMessage('Please select both an eval set and endpoint integration');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/generate-eval-runner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eval_id: evalId,
+          eval_set_id: codeGenForm.eval_set_id,
+          endpoint_integration_id: codeGenForm.endpoint_integration_id,
+          instructions: codeGenForm.instructions,
+          sample_size: codeGenForm.sample_size
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate code');
+      }
+
+      const data = await response.json();
+      setGeneratedCode(data.generated_code);
+      setEditedCode(data.generated_code);
+      setCurrentCodeVersionId(data.code_version_id);
+      setIsEditing(false);
+      setActiveCodeView('new');
+      fetchCodeVersions(); // Refresh the versions list
+      showMessage('✅ Code generated successfully!');
+    } catch (error) {
+      showMessage('❌ Failed to generate code');
+      console.error('Error generating code:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSaveCode = async () => {
+    if (!currentCodeVersionId) {
+      showMessage('❌ No code version to save');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/code-versions/${currentCodeVersionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: editedCode
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save code');
+      }
+
+      const data = await response.json();
+      setGeneratedCode(editedCode);
+      setCurrentCodeVersionId(data.code_version_id);
+      setIsEditing(false);
+      fetchCodeVersions(); // Refresh the versions list
+      showMessage('✅ Code saved successfully!');
+    } catch (error) {
+      showMessage('❌ Failed to save code');
+      console.error('Error saving code:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditCode = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedCode(generatedCode);
+    setIsEditing(false);
+  };
+
+  const fetchCodeVersions = async () => {
+    setIsLoadingVersions(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/evals/${evalId}/code-versions`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch code versions');
+      }
+      const versions = await response.json();
+      setCodeVersions(versions);
+    } catch (error) {
+      console.error('Error fetching code versions:', error);
+      showMessage('❌ Failed to load code versions');
+    } finally {
+      setIsLoadingVersions(false);
+    }
+  };
+
+  const handleViewCodeVersion = async (versionId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/code-versions/${versionId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch code version');
+      }
+      const version = await response.json();
+      setSelectedCodeVersion(version);
+      setActiveCodeView('existing');
+    } catch (error) {
+      console.error('Error fetching code version:', error);
+      showMessage('❌ Failed to load code version');
+    }
+  };
+
+  // Load code versions when component mounts
+  useEffect(() => {
+    if (evalId) {
+      fetchCodeVersions();
+    }
+  }, [evalId]);
 
   if (evaluationLoading) {
     return (
@@ -187,6 +337,16 @@ export default function EvaluationDetails() {
               }`}
             >
               Endpoint Integrations ({endpointIntegrations.filter(i => i.eval_id === evalId).length})
+            </button>
+            <button
+              onClick={() => setActiveTab('code-generation')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'code-generation'
+                  ? 'border-gray-500 text-gray-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Code Generation
             </button>
           </nav>
         </div>
@@ -404,6 +564,383 @@ export default function EvaluationDetails() {
              setSelectedEval={() => {}} // Already selected
              onMessage={handleIntegrationMessage}
            />
+        </div>
+      )}
+
+      {/* Code Generation Tab */}
+      {activeTab === 'code-generation' && (
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold">Generate Eval Runner Code</h2>
+            <button onClick={fetchCodeVersions} className="btn-secondary">
+              Refresh Versions
+            </button>
+          </div>
+
+          {/* Sub-tabs for New Generation vs Existing Versions */}
+          <div className="mb-6">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveCodeView('new')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeCodeView === 'new'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  New Generation
+                </button>
+                <button
+                  onClick={() => setActiveCodeView('existing')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeCodeView === 'existing'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Existing Versions ({codeVersions.length})
+                </button>
+              </nav>
+            </div>
+          </div>
+
+          {/* New Generation View */}
+          {activeCodeView === 'new' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Configuration Form */}
+              <div className="space-y-6">
+                <div className="card">
+                <h3 className="text-lg font-bold mb-4">Configuration</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block mb-2 font-medium">Eval Set *</label>
+                    <select
+                      value={codeGenForm.eval_set_id}
+                      onChange={(e) => setCodeGenForm({ ...codeGenForm, eval_set_id: e.target.value })}
+                      className="select-field"
+                    >
+                      <option value="">Select an eval set...</option>
+                      {evalSets.map((evalSet) => (
+                        <option key={evalSet.id} value={evalSet.id}>
+                          {evalSet.name} ({evalSet.row_count || 'Unknown'} rows)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 font-medium">Endpoint Integration *</label>
+                    <select
+                      value={codeGenForm.endpoint_integration_id}
+                      onChange={(e) => setCodeGenForm({ ...codeGenForm, endpoint_integration_id: e.target.value })}
+                      className="select-field"
+                    >
+                      <option value="">Select an endpoint integration...</option>
+                      {endpointIntegrations
+                        .filter(integration => integration.eval_id === evalId)
+                        .map((integration) => (
+                          <option key={integration.id} value={integration.id}>
+                            {integration.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 font-medium">Sample Size</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={codeGenForm.sample_size}
+                      onChange={(e) => setCodeGenForm({ ...codeGenForm, sample_size: parseInt(e.target.value) || 5 })}
+                      className="input-field"
+                      placeholder="Number of sample rows to use as context"
+                    />
+                    <p className="text-sm text-gray-600 mt-1">
+                      Number of sample rows from the eval set to use as context for code generation
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 font-medium">Additional Instructions</label>
+                    <textarea
+                      value={codeGenForm.instructions}
+                      onChange={(e) => setCodeGenForm({ ...codeGenForm, instructions: e.target.value })}
+                      className="input-field"
+                      rows={4}
+                      placeholder="Any specific requirements or evaluation criteria..."
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleGenerateCode}
+                    disabled={isGenerating || !codeGenForm.eval_set_id || !codeGenForm.endpoint_integration_id}
+                    className="btn-primary w-full"
+                  >
+                    {isGenerating ? 'Generating Code...' : 'Generate Eval Runner Code'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Generated Code Display */}
+            <div className="space-y-6">
+                             <div className="card">
+                 <div className="flex justify-between items-center mb-4">
+                   <h3 className="text-lg font-bold">Generated Code</h3>
+                   {generatedCode && (
+                     <div className="flex gap-2">
+                       {isEditing ? (
+                         <>
+                           <button
+                             onClick={handleSaveCode}
+                             disabled={isSaving}
+                             className="btn-primary text-sm"
+                           >
+                             {isSaving ? 'Saving...' : 'Save Changes'}
+                           </button>
+                           <button
+                             onClick={handleCancelEdit}
+                             className="btn-secondary text-sm"
+                           >
+                             Cancel
+                           </button>
+                         </>
+                       ) : (
+                         <>
+                           <button
+                             onClick={handleEditCode}
+                             className="btn-primary text-sm"
+                           >
+                             Edit Code
+                           </button>
+                           <button
+                             onClick={() => navigator.clipboard.writeText(generatedCode)}
+                             className="btn-secondary text-sm"
+                           >
+                             Copy Code
+                           </button>
+                         </>
+                       )}
+                     </div>
+                   )}
+                 </div>
+                 
+                 {generatedCode ? (
+                   <div className="border rounded-lg overflow-hidden">
+                     <Editor
+                       value={isEditing ? editedCode : generatedCode}
+                       onValueChange={(code) => setEditedCode(code)}
+                       highlight={(code) => highlight(code, languages.python, 'python')}
+                       padding={16}
+                       readOnly={!isEditing}
+                       style={{
+                         fontFamily: '"Fira Code", "Fira Mono", monospace',
+                         fontSize: 14,
+                         backgroundColor: '#2d3748',
+                         color: '#e2e8f0',
+                         minHeight: '400px',
+                         maxHeight: '600px',
+                         overflow: 'auto',
+                         outline: 'none',
+                       }}
+                     />
+                   </div>
+                 ) : (
+                   <div className="bg-gray-50 p-8 rounded-lg text-center">
+                     <p className="text-gray-600">
+                       Generated code will appear here after configuration
+                     </p>
+                   </div>
+                 )}
+               </div>
+
+                             {generatedCode && (
+                 <div className="card">
+                   <h4 className="font-bold mb-2">Next Steps</h4>
+                   <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                     <li>Edit the code directly in the editor above (click "Edit Code")</li>
+                     <li>Save your changes to create a new version</li>
+                     <li>Copy the final code to your local environment</li>
+                     <li>Save it as a Python file (e.g., `eval_runner.py`)</li>
+                     <li>Install required dependencies: `pip install pandas requests`</li>
+                     <li>Run the evaluation: `python eval_runner.py`</li>
+                     <li>Review the results in the generated JSON file</li>
+                   </ol>
+                   
+                   {isEditing && (
+                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                       <p className="text-sm text-blue-800">
+                         💡 <strong>Tip:</strong> You can modify the code directly in the editor. 
+                         Your changes will be saved as a new version when you click "Save Changes".
+                       </p>
+                     </div>
+                   )}
+                 </div>
+               )}
+            </div>
+          </div>
+          )}
+
+          {/* Existing Versions View */}
+          {activeCodeView === 'existing' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Code Versions List */}
+              <div className="space-y-6">
+                <div className="card">
+                  <h3 className="text-lg font-bold mb-4">Code Versions ({codeVersions.length})</h3>
+                  
+                  {isLoadingVersions ? (
+                    <div className="space-y-3">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="border border-gray-200 rounded-lg p-4 animate-pulse">
+                          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/2 mb-1"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : codeVersions.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-600 mb-4">No code versions found</p>
+                      <button 
+                        onClick={() => setActiveCodeView('new')}
+                        className="btn-primary"
+                      >
+                        Generate Your First Code
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {codeVersions.map((version) => (
+                        <div
+                          key={version.id}
+                          className={`border border-gray-200 rounded-lg p-4 cursor-pointer transition-colors ${
+                            selectedCodeVersion?.id === version.id
+                              ? 'bg-blue-50 border-blue-300'
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => handleViewCodeVersion(version.id)}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-medium">Version {version.version}</h4>
+                            {version.is_active && (
+                              <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-1 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Eval Set:</span>{' '}
+                              {version.eval_set_name || 'Unknown'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Integration:</span>{' '}
+                              {version.endpoint_integration_name || 'Unknown'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Created:</span>{' '}
+                              {new Date(version.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Selected Code Version Display */}
+              <div className="space-y-6">
+                <div className="card">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold">
+                      {selectedCodeVersion ? `Version ${selectedCodeVersion.version}` : 'Select a Version'}
+                    </h3>
+                    {selectedCodeVersion && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => navigator.clipboard.writeText(selectedCodeVersion.code)}
+                          className="btn-secondary text-sm"
+                        >
+                          Copy Code
+                        </button>
+                        <button
+                          onClick={() => {
+                            setGeneratedCode(selectedCodeVersion.code);
+                            setEditedCode(selectedCodeVersion.code);
+                            setCurrentCodeVersionId(selectedCodeVersion.id);
+                            setIsEditing(false);
+                            setActiveCodeView('new');
+                          }}
+                          className="btn-primary text-sm"
+                        >
+                          Edit This Version
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {selectedCodeVersion ? (
+                    <div>
+                      {/* Version Details */}
+                      <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700">Eval Set:</span>
+                            <p className="text-gray-900">{selectedCodeVersion.eval_set_name || 'Unknown'}</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Integration:</span>
+                            <p className="text-gray-900">{selectedCodeVersion.endpoint_integration_name || 'Unknown'}</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Version:</span>
+                            <p className="text-gray-900">{selectedCodeVersion.version}</p>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Created:</span>
+                            <p className="text-gray-900">{new Date(selectedCodeVersion.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Code Display */}
+                      <div className="border rounded-lg overflow-hidden">
+                        <Editor
+                          value={selectedCodeVersion.code}
+                          onValueChange={() => {}} // Read-only
+                          highlight={(code) => highlight(code, languages.python, 'python')}
+                          padding={16}
+                          readOnly={true}
+                          style={{
+                            fontFamily: '"Fira Code", "Fira Mono", monospace',
+                            fontSize: 14,
+                            backgroundColor: '#2d3748',
+                            color: '#e2e8f0',
+                            minHeight: '400px',
+                            maxHeight: '600px',
+                            overflow: 'auto',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 p-8 rounded-lg text-center">
+                      <p className="text-gray-600">
+                        Select a code version from the list to view its details
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

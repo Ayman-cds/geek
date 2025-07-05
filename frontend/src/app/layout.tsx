@@ -32,8 +32,8 @@ export default function RootLayout({
           <div className="min-h-screen bg-gray-50">
             <header className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
               <div className="max-w-7xl mx-auto">
-                <h1 className="text-2xl font-bold text-black">Scale Geek</h1>
-                <p className="text-sm text-gray-600 mt-1">Evaluation Platform</p>
+                <h1 className="text-2xl font-bold text-black">Scale G.E.E.K</h1>
+                <p className="text-sm text-gray-600 mt-1">Generative Eval and Explanation Kit</p>
               </div>
             </header>
             <main className="px-6 py-8">

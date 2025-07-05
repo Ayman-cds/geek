@@ -9,7 +9,7 @@ from io import StringIO
 
 from .models import Eval, EvalSet, EndpointIntegration
 from .schemas import EvalSetResponseSchema, EvalSetListSchema, EvalSetUpdateSchema
-from .helpers import upload_csv_to_azure, delete_csv_from_azure
+from .helpers import upload_csv_to_azure, delete_csv_from_azure, retrieve_csv_from_azure
 
 router = Router()
 
@@ -124,9 +124,26 @@ def get_eval_set(request, eval_set_id: str):
 @router.delete("/eval-sets/{eval_set_id}")
 def delete_eval_set(request, eval_set_id: str):
     eval_set = get_object_or_404(EvalSet, id=eval_set_id)
-    
+
     if eval_set.file_url:
         delete_csv_from_azure(eval_set.file_url)
-    
+
     eval_set.delete()
-    return {"message": "Eval set deleted successfully"} 
+    return {"message": "Eval set deleted successfully"}
+
+
+@router.get("/eval-sets/{eval_set_id}/sample-data")
+def get_eval_set_sample_data(request, eval_set_id: str, sample_size: int = Query(5)):
+    eval_set = get_object_or_404(EvalSet, id=eval_set_id)
+
+    csv_data = retrieve_csv_from_azure(eval_set.file_url, sample_size)
+    if not csv_data:
+        return {"error": "Failed to retrieve CSV data from blob storage"}, 500
+
+    return {
+        "eval_set_id": eval_set_id,
+        "eval_set_name": eval_set.name,
+        "sample_rows": csv_data["sample_rows"],
+        "total_rows": csv_data["total_rows"],
+        "sample_size": len(csv_data["sample_rows"]),
+    }

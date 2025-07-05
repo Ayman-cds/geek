@@ -130,28 +130,42 @@ class CodeVersion(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     eval = models.ForeignKey(Eval, on_delete=models.CASCADE, related_name='code_versions')
+    eval_set = models.ForeignKey(
+        EvalSet,
+        on_delete=models.CASCADE,
+        related_name="code_versions",
+        null=True,
+        blank=True,
+    )
+    endpoint_integration = models.ForeignKey(
+        EndpointIntegration,
+        on_delete=models.CASCADE,
+        related_name="code_versions",
+        null=True,
+        blank=True,
+    )
     version = models.IntegerField(help_text="Incrementing; start at 1")
     code = models.TextField(help_text="Full Python script, runnable out-of-the-box")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_code_versions')
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=False, help_text="Only one version per eval is active")
-    
+
     class Meta:
         ordering = ['-version']
         unique_together = ['eval', 'version']
-        
+
     def save(self, *args, **kwargs):
         # Auto-increment version for new code versions
         if not self.version:
             last_version = CodeVersion.objects.filter(eval=self.eval).order_by('-version').first()
             self.version = (last_version.version + 1) if last_version else 1
-        
+
         # Ensure only one active version per eval
         if self.is_active:
             CodeVersion.objects.filter(eval=self.eval, is_active=True).update(is_active=False)
-            
+
         super().save(*args, **kwargs)
-        
+
     def __str__(self):
         return f"{self.eval.name} - v{self.version}"
 
